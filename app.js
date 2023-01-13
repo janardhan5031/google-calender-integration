@@ -8,7 +8,7 @@ app.use(express.urlencoded({ extended: false }));
 
 // app.use( (req, res) => res.send('hii'));
 
-app.use('/rest/v1/calender', Routes)
+app.use('/calender', Routes)
 
 
 app.listen(5000);

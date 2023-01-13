@@ -37,10 +37,39 @@ Router.get('/redirect', async (req, res) => {
         }
         else { // Get access and refresh tokens (if access_type is offline)
             const response = await oauth2Client.getToken(query.code);
+            oauth2Client.setCredentials(response.tokens);
             // oauth2Client.setCredentials(tokens);
-
+            
             userCredential = response.tokens;
-            res.send('successfully signed in')
+            console.log(userCredential)
+
+            // getting the top 10 events form user's calender list
+            const calendar = google.calendar('v3');
+            const responseData = await calendar.events.list({
+                auth: oauth2Client,
+                calendarId: 'primary',
+                timeMin: new Date().toISOString(),
+                maxResults: 10,
+                singleEvents: true,
+                orderBy: 'startTime',
+            });
+            const events = responseData.data.items;
+            if (!events || events.length === 0) {
+                console.log('No upcoming events found.');
+                res.send('there is no events in your calender')
+            }
+            else {
+
+                console.log('Upcoming 10 events:');
+                const list = events.map((event, i) => {
+                    const start = event.start.dateTime || event.start.date;
+                    console.log(`${start} - ${event.summary}`);
+                    return `${start} - ${event.summary}`
+                });
+
+                res.status(200).json({eventsList:list})
+            }
+
         }
 
     } catch (err) {
@@ -49,7 +78,6 @@ Router.get('/redirect', async (req, res) => {
 
     }
 
-    console.log(userCredential)
 
 })
 
