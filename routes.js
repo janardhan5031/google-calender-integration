@@ -6,105 +6,76 @@ const process = require('process');
 const { authenticate } = require('@google-cloud/local-auth');
 const { google } = require('googleapis');
 
+const url = require('url');
+
 const Router = express.Router();
 
+const oauth2Client = new google.auth.OAuth2(
+    '669853299274-h416ojaiqe9pultijrefvgfqk4buos0j.apps.googleusercontent.com',
+    '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',
+    'http://localhost:5000/calender/redirect'
+);
 
-Router.get('/init', (req, res, next) => {
-    // res.send('hello')
+// Access scopes for read-only Drive activity.
+const scopes = [
+    'https://www.googleapis.com/auth/calendar'
+];
 
-    // If modifying these scopes, delete token.json.
-    const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
-    // The file token.json stores the user's access and refresh tokens, and is
-    // created automatically when the authorization flow completes for the first
-    // time.
-    const TOKEN_PATH = path.join(process.cwd(), 'token.json');
-    const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
+// Generate a url that asks permissions for the Drive activity scope
+const authorizationUrl = oauth2Client.generateAuthUrl({
+    // 'online' (default) or 'offline' (gets refresh_token)
+    access_type: 'online',
+    /** Pass in the scopes array defined above.
+      * Alternatively, if only one scope is needed, you can pass a scope URL as a string */
+    scope: scopes,
+    // Enable incremental authorization. Recommended as a best practice.
+    include_granted_scopes: true
+});
+console.log('=====>', authorizationUrl);
+let userCredential = null;
 
-    /*
-     Reads previously authorized credentials from the save file.
-     
-      @return {Promise<OAuth2Client|null>}
-     */
-    async function loadSavedCredentialsIfExist() {
-        try {
-            const content = await fs.readFile(TOKEN_PATH);
-            const credentials = JSON.parse(content);
-            return google.auth.fromJSON(credentials);
-        } catch (err) {
-            return null;
-        }
+Router.get('/', async (req, res, next) => {
+
+
+
+    async function main(req, res) {
+
+        console.log('redirect user to auth page', req.url)
+
+        res.writeHead(301, { "Location": authorizationUrl });
+        res.end();
+       
     }
-
-    /*
-     * Serializes credentials to a file compatible with GoogleAUth.fromJSON.
-     *
-     * @param {OAuth2Client} client
-     * @return {Promise<void>}
-     */
-    async function saveCredentials(client) {
-        const content = await fs.readFile(CREDENTIALS_PATH);
-        const keys = JSON.parse(content);
-        const key = keys.installed || keys.web;
-        const payload = JSON.stringify({
-            type: 'authorized_user',
-            client_id: key.client_id,
-            client_secret: key.client_secret,
-            refresh_token: client.credentials.refresh_token,
-        });
-        await fs.writeFile(TOKEN_PATH, payload);
-    }
-
-    /**
-     * Load or request or authorization to call APIs.
-     *
-     */
-    async function authorize() {
-        let client = await loadSavedCredentialsIfExist();
-        if (client) {
-            return client;
-        }
-        client = await authenticate({
-            scopes: SCOPES,
-            keyfilePath: CREDENTIALS_PATH
-            
-        });
-        console.log(client)
-
-        if (client.credentials) {
-            await saveCredentials(client);
-        }
-        console.log(client)
-        return client;
-    }
-
-    /*
-     * Lists the next 10 events on the user's primary calendar.
-     * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
-     */
-    async function listEvents(auth) {
-        const calendar = google.calendar({ version: 'v3', auth });
-        const res = await calendar.events.list({
-            calendarId: 'primary',
-            timeMin: new Date().toISOString(),
-            maxResults: 10,
-            singleEvents: true,
-            orderBy: 'startTime',
-        });
-        const events = res.data.items;
-        if (!events || events.length === 0) {
-            console.log('No upcoming events found.');
-            return;
-        }
-        console.log('Upcoming 10 events:');
-        events.map((event, i) => {
-            const start = event.start.dateTime || event.start.date;
-            console.log(`${start} - ${event.summary}`);
-        });
-    }
-
-    authorize().then(listEvents).catch(console.error);
+    main(req, res).then().catch(console.error);
 })
 
+Router.get('/calender/redirect', async (req, res) => {
+    const query = req.query;
+    console.log(query)
+    console.log(query.code)
+
+    try {
+        if (query.error) { // An error response e.g. error=access_denied
+            console.log('Error:' + query.error);
+        } else { // Get access and refresh tokens (if access_type is offline)
+            let response = await oauth2Client.getToken(query.code);
+            // oauth2Client.setCredentials(tokens);
+
+            // console.log('response ===> ', response)
+            userCredential = response.tokens;
+        }
+
+    } catch (err) {
+        console.log(err)
+    }
+
+
+    console.log(userCredential)
+    res.send('successfully signed in')
+
+})
+
+// Request details: redirect_uri=http://localhost:5000/calender/redirect
 
 
 module.exports = Router;

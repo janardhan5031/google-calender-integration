@@ -6,10 +6,12 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.use('/googleCalender',Routes)
+app.use( Routes)
 
 
-app.use('/', (req, res) => res.send('hii'));
 
 
-app.listen(4000);
+// app.use( (req, res) => res.send('hii'));
+
+
+app.listen(5000);
